@@ -1,0 +1,14 @@
+{
+  "appId": "br.com.oestecargas.motorista",
+  "appName": "Oeste Cargas - Motorista",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "useLegacyBridge": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "oeste-cargas-motorista",
+  "version": "2.1.0",
+  "private": true,
+  "description": "App do Motorista Oeste Cargas — offline-first (Capacitor)",
+  "scripts": {
+    "android:add": "cap add android",
+    "android:sync": "cap sync android && node scripts/patch-android.js",
+    "android:open": "cap open android",
+    "android:assets": "capacitor-assets generate --android --iconBackgroundColor '#b30101' --iconBackgroundColorDark '#b30101' --splashBackgroundColor '#b30101' --splashBackgroundColorDark '#b30101'"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/filesystem": "^8.0.0",
+    "@capacitor/local-notifications": "^8.0.0",
+    "@capacitor/network": "^8.0.0",
+    "@capacitor/preferences": "^8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/assets": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
