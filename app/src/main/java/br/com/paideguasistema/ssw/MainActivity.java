@@ -110,7 +110,23 @@ public class MainActivity extends Activity {
             return;
         }
         Uri dado = getIntent() != null ? getIntent().getData() : null;
-        principal.loadUrl(dado != null ? dado.toString() : urlInicial());
+        String inicial = dado != null ? dado.toString() : urlInicial();
+        // Só carrega depois que o WebView tem tamanho real na tela: o login do SSW calcula
+        // o layout pelo tamanho da janela no carregamento e, carregando antes, fica cortado.
+        quandoMedido(principal, () -> principal.loadUrl(inicial));
+    }
+
+    private void quandoMedido(View v, Runnable acao) {
+        if (v.getWidth() > 0 && v.getHeight() > 0) { acao.run(); return; }
+        v.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                if (v.getWidth() > 0 && v.getHeight() > 0) {
+                    v.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    acao.run();
+                }
+            }
+        });
     }
 
     @Override
@@ -145,6 +161,11 @@ public class MainActivity extends Activity {
         aplicarUserAgent(s);
 
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true);
+        wv.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            if ((r - l) != (or - ol) || (b - t) != (ob - ot)) {
+                ((WebView) v).evaluateJavascript("try{window.dispatchEvent(new Event('resize'))}catch(e){}", null);
+            }
+        });
         wv.setWebViewClient(new Cliente());
         wv.setWebChromeClient(new Chrome());
         wv.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) ->
@@ -217,6 +238,7 @@ public class MainActivity extends Activity {
             progresso.setVisibility(View.GONE);
             CookieManager.getInstance().flush();
             atualizarTitulo();
+            view.evaluateJavascript("try{window.dispatchEvent(new Event('resize'))}catch(e){}", null);
             if (prefs.getBoolean(KEY_AJUSTE, true) && url != null && url.startsWith("http")) {
                 view.evaluateJavascript(JS_AJUSTE, null);
             }
@@ -346,6 +368,7 @@ public class MainActivity extends Activity {
         menu.add(0, 8, 4, "Ajustar à largura da tela").setCheckable(true);
         menu.add(0, 6, 5, "Alterar endereço");
         menu.add(0, 7, 6, "Sair (limpar login)");
+        menu.add(0, 9, 7, "Diagnóstico da tela");
         return true;
     }
 
@@ -386,11 +409,47 @@ public class MainActivity extends Activity {
                 prefs.edit().putBoolean(KEY_AJUSTE, !prefs.getBoolean(KEY_AJUSTE, true)).apply();
                 topo().reload();
                 return true;
+            case 9:
+                diagnostico();
+                return true;
             case 7:
                 confirmarSair();
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /** Coleta medidas e estrutura da página para ajustar o dimensionamento. */
+    private void diagnostico() {
+        WebView wv = topo();
+        String js = "(function(){var d=document,b=d.body,h=d.documentElement,o={};"
+                + "o.url=location.href;o.inner=innerWidth+'x'+innerHeight;o.screen=screen.width+'x'+screen.height;"
+                + "o.dpr=devicePixelRatio;o.scale=window.visualViewport?visualViewport.scale:'';"
+                + "o.doc=h.scrollWidth+'x'+h.scrollHeight;o.body=b?b.scrollWidth+'x'+b.scrollHeight:'-';"
+                + "var m=d.querySelector('meta[name=viewport]');o.viewport=m?m.content:'(nenhum)';"
+                + "o.frames=d.getElementsByTagName('frame').length+'/'+d.getElementsByTagName('iframe').length;"
+                + "o.inputs=d.getElementsByTagName('input').length;"
+                + "var l=[];if(b){var e=b.getElementsByTagName('*');for(var i=0;i<e.length&&l.length<25;i++){var r=e[i].getBoundingClientRect();"
+                + "if(r.width>150||r.height>150){var s=getComputedStyle(e[i]);l.push(e[i].tagName+(e[i].id?'#'+e[i].id:'')+' '+Math.round(r.left)+','+Math.round(r.top)+' '+Math.round(r.width)+'x'+Math.round(r.height)+' '+s.position+' w='+(e[i].style.width||'')+' h='+(e[i].style.height||''));}}}"
+                + "o.elementos=l;o.head=(d.head?d.head.innerHTML:'').replace(/\\s+/g,' ').slice(0,1500);"
+                + "o.inicioBody=(b?b.innerHTML:'').replace(/\\s+/g,' ').slice(0,2500);return JSON.stringify(o,null,1);})()";
+        wv.evaluateJavascript(js, valor -> {
+            String txt;
+            try { txt = new org.json.JSONTokener(valor).nextValue().toString(); } catch (Exception e) { txt = String.valueOf(valor); }
+            txt = "app=" + BuildConfig.VERSION_NAME + " webview=" + wv.getWidth() + "x" + wv.getHeight()
+                    + " densidade=" + getResources().getDisplayMetrics().density + "\n" + txt;
+            final String texto = txt;
+            new AlertDialog.Builder(this)
+                    .setTitle("Diagnóstico")
+                    .setMessage(texto.length() > 1500 ? texto.substring(0, 1500) + "…" : texto)
+                    .setPositiveButton("Copiar", (d, w) -> {
+                        android.content.ClipboardManager cb = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        cb.setPrimaryClip(android.content.ClipData.newPlainText("diagnostico", texto));
+                        Toast.makeText(this, "Copiado — cole na conversa", Toast.LENGTH_SHORT).show();
+                    })
+                    .setNegativeButton("Fechar", null)
+                    .show();
+        });
     }
 
     private void imprimir() {
