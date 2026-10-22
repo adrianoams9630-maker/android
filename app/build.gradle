@@ -10,20 +10,34 @@ android {
         applicationId 'br.com.paideguasistema.ssw'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0.0'
+        // Número do build do GitHub Actions vira a versão (permite atualizar por cima)
+        versionCode((project.findProperty('vc') ?: '1') as int)
+        versionName "1.0.${project.findProperty('vc') ?: '0'}"
         // Endereço inicial padrão (pode ser alterado dentro do app em Menu > Alterar endereço)
         buildConfigField 'String', 'URL_PADRAO', '"https://sistema.ssw.inf.br/bin/ssw0422"'
     }
 
     buildFeatures { buildConfig true }
 
+    signingConfigs {
+        fixa {
+            // Chave fixa vinda dos secrets do GitHub (SSW_KEYSTORE_BASE64 / SSW_KEYSTORE_PASSWORD)
+            def ks = file('release.keystore')
+            if (ks.exists()) {
+                storeFile ks
+                storePassword System.getenv('SSW_KEYSTORE_PASSWORD')
+                keyAlias 'ssw'
+                keyPassword System.getenv('SSW_KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
-            // Assina com a chave de debug para gerar um APK instalável sem configurar keystore.
-            // Para publicar na Play Store, troque por uma signingConfig própria.
-            signingConfig signingConfigs.debug
+            // Com a keystore presente usa a chave fixa; senão, a de debug (APK instalável, mas
+            // cada build terá chave diferente e não atualizará por cima da versão anterior).
+            signingConfig file('release.keystore').exists() ? signingConfigs.fixa : signingConfigs.debug
         }
     }
 

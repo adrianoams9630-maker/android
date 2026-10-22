@@ -5,9 +5,15 @@ on:
     branches: [ main, master, ssw-app ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      SSW_KEYSTORE_PASSWORD: ${{ secrets.SSW_KEYSTORE_PASSWORD }}
+      TEM_KEYSTORE: ${{ secrets.SSW_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -16,14 +22,33 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Preparar chave fixa
+        if: env.TEM_KEYSTORE == 'true'
+        env:
+          KS: ${{ secrets.SSW_KEYSTORE_BASE64 }}
+        run: echo "$KS" | base64 -d > app/release.keystore
+
       - name: Compilar APK
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon -Pvc=${{ github.run_number }}
+          cp app/build/outputs/apk/release/*.apk SSW.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: SSW-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: SSW.apk
           if-no-files-found: error
+
+      # Release com tag fixa "ssw-latest": o link de download nunca muda
+      - name: Publicar Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ssw-latest --cleanup-tag -y || true
+          ASSINATURA=$([ "$TEM_KEYSTORE" = "true" ] && echo "chave fixa" || echo "chave de debug")
+          gh release create ssw-latest SSW.apk \
+            --target "$GITHUB_SHA" \
+            --title "SSW Android 1.0.${{ github.run_number }}" \
+            --notes "Build ${{ github.run_number }} — assinado com $ASSINATURA. Baixar: https://github.com/${{ github.repository }}/releases/download/ssw-latest/SSW.apk" \
+            --latest=false
