@@ -1,0 +1,34 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'br.com.paideguasistema.ssw'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'br.com.paideguasistema.ssw'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+        // Endereço inicial padrão (pode ser alterado dentro do app em Menu > Alterar endereço)
+        buildConfigField 'String', 'URL_PADRAO', '"https://sistema.ssw.inf.br/bin/ssw0422"'
+    }
+
+    buildFeatures { buildConfig true }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // Assina com a chave de debug para gerar um APK instalável sem configurar keystore.
+            // Para publicar na Play Store, troque por uma signingConfig própria.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorPrimary">@color/primaria</item>
+        <item name="android:colorPrimaryDark">@color/primaria_escura</item>
+        <item name="android:colorAccent">@color/primaria</item>
+        <item name="android:statusBarColor">@color/primaria_escura</item>
+    </style>
+</resources>
