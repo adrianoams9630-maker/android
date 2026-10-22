@@ -53,6 +53,27 @@ public class MainActivity extends Activity {
     private static final String PREFS = "ssw_prefs";
     private static final String KEY_URL = "url_inicial";
     private static final String KEY_DESKTOP = "modo_desktop";
+    private static final String KEY_AJUSTE = "ajustar_tela";
+
+    /**
+     * Mede até onde o conteúdo realmente vai (as telas do SSW têm largura fixa e não
+     * declaram viewport) e define o viewport com essa largura, para o WebView ampliar
+     * a página até ocupar a largura inteira da tela. Reaplica ao girar o aparelho.
+     */
+    private static final String JS_AJUSTE =
+            "(function(){try{"
+            + "if(window.__sswAjuste)return window.__sswAjuste();"
+            + "function medir(){var b=document.body;if(!b)return 0;var m=0,els=b.getElementsByTagName('*'),n=Math.min(els.length,4000);"
+            + "for(var i=0;i<n;i++){var e=els[i];if(!e.offsetWidth&&!e.offsetHeight)continue;var st=getComputedStyle(e);"
+            + "if(st.position==='fixed'||st.visibility==='hidden')continue;var r=e.getBoundingClientRect();"
+            + "if(r.width>=4000||r.right<=0)continue;var d=r.right+window.scrollX;if(d>m)m=d;}return Math.ceil(m);}"
+            + "function aplicar(){var w=medir();if(w<200)return;w=Math.max(320,Math.min(w+8,2400));"
+            + "var mt=document.querySelector('meta[name=viewport]');"
+            + "if(!mt){mt=document.createElement('meta');mt.name='viewport';(document.head||document.documentElement).appendChild(mt);}"
+            + "var c='width='+w+', user-scalable=yes';if(mt.getAttribute('content')!==c)mt.setAttribute('content',c);}"
+            + "window.__sswAjuste=aplicar;aplicar();setTimeout(aplicar,500);setTimeout(aplicar,1500);"
+            + "window.addEventListener('orientationchange',function(){setTimeout(aplicar,300);});"
+            + "}catch(e){}})();";
     private static final int REQ_ARQUIVO = 1001;
 
     private FrameLayout container;
@@ -196,6 +217,9 @@ public class MainActivity extends Activity {
             progresso.setVisibility(View.GONE);
             CookieManager.getInstance().flush();
             atualizarTitulo();
+            if (prefs.getBoolean(KEY_AJUSTE, true) && url != null && url.startsWith("http")) {
+                view.evaluateJavascript(JS_AJUSTE, null);
+            }
         }
 
         @Override
@@ -319,6 +343,7 @@ public class MainActivity extends Activity {
         menu.add(0, 3, 2, "Fechar janela");
         menu.add(0, 4, 3, "Imprimir / Salvar PDF");
         menu.add(0, 5, 4, "Modo desktop").setCheckable(true);
+        menu.add(0, 8, 4, "Ajustar à largura da tela").setCheckable(true);
         menu.add(0, 6, 5, "Alterar endereço");
         menu.add(0, 7, 6, "Sair (limpar login)");
         return true;
@@ -328,6 +353,7 @@ public class MainActivity extends Activity {
     public boolean onPrepareOptionsMenu(Menu menu) {
         menu.findItem(3).setVisible(pilha.size() > 1);
         menu.findItem(5).setChecked(prefs.getBoolean(KEY_DESKTOP, false));
+        menu.findItem(8).setChecked(prefs.getBoolean(KEY_AJUSTE, true));
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -355,6 +381,10 @@ public class MainActivity extends Activity {
                 return true;
             case 6:
                 dialogoEndereco();
+                return true;
+            case 8:
+                prefs.edit().putBoolean(KEY_AJUSTE, !prefs.getBoolean(KEY_AJUSTE, true)).apply();
+                topo().reload();
                 return true;
             case 7:
                 confirmarSair();
@@ -430,6 +460,14 @@ public class MainActivity extends Activity {
                     .setPositiveButton("Fechar", (d, w) -> finish())
                     .setNegativeButton("Cancelar", null)
                     .show();
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration nova) {
+        super.onConfigurationChanged(nova);
+        if (prefs.getBoolean(KEY_AJUSTE, true)) {
+            for (WebView wv : pilha) wv.evaluateJavascript("window.__sswAjuste&&setTimeout(window.__sswAjuste,300)", null);
         }
     }
 
