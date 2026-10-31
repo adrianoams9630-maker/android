@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f5f7;font:15px/1.45 system-ui,Roboto,Arial,sans-serif;color:#1c1f24}
+.c{max-width:340px;padding:24px;text-align:center}
+.logo{width:56px;height:56px;border-radius:14px;background:#c8102e;color:#fff;font-weight:800;font-size:22px;display:grid;place-items:center;margin:0 auto 14px}
+h1{font-size:19px;margin:0 0 8px} p{color:#667085;margin:0 0 18px}
+button{display:block;width:100%;border:0;border-radius:10px;padding:13px;font:inherit;font-weight:600;margin-top:10px}
+.pri{background:#c8102e;color:#fff} .sec{background:#fff;border:1px solid #e4e7ec}
+small{display:block;margin-top:18px;color:#98a2b3;word-break:break-all}
+</style></head><body><div class="c">
+<div class="logo">OC</div>
+<h1>Não foi possível abrir o painel</h1>
+<p>{{MSG}}</p>
+<button class="pri" onclick="OesteApp.recarregar()">Tentar de novo</button>
+<button class="sec" onclick="OesteApp.trocarServidor()">Configurar servidor</button>
+<small>{{URL}}<br>Conferência MDF-e {{VERSAO}} · Paidegua Sistema</small>
+</div></body></html>
