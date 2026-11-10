@@ -3,4 +3,5 @@
     <color name="primaria">#C0183C</color>
     <color name="fundo">#0D0D0F</color>
     <color name="branco">#FFFFFF</color>
+    <color name="icone_fundo">#CB1F1F</color>
 </resources>
