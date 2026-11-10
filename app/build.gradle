@@ -1,0 +1,57 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'br.com.grupomenezes.vhcmotorista'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'br.com.grupomenezes.vhcmotorista'
+        minSdk 26
+        targetSdk 35
+        // Número do build do GitHub Actions vira a versão (instala por cima da anterior)
+        versionCode((project.findProperty('vc') ?: '1') as int)
+        versionName "1.0.${project.findProperty('vc') ?: '0'}"
+        // App web servido pelo n8n
+        buildConfigField 'String', 'URL_APP', '"https://n8n.paideguasistema.com.br/webhook/motorista/app"'
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        // Com o secret VHC_KEYSTORE_BASE64 usa a chave privada; sem ele usa a chave
+        // estável versionada no repo — sempre a mesma, então as versões novas instalam por cima.
+        fixa {
+            def priv = file('release.keystore')
+            if (priv.exists()) {
+                storeFile priv
+                storePassword System.getenv('VHC_KEYSTORE_PASSWORD')
+                keyAlias 'vhc'
+                keyPassword System.getenv('VHC_KEYSTORE_PASSWORD')
+            } else {
+                storeFile file('vhc-estavel.keystore')
+                storePassword 'vhcmotorista'
+                keyAlias 'vhc'
+                keyPassword 'vhcmotorista'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.fixa
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Localização "fused" do Google: precisa, economiza bateria e acorda o aparelho no intervalo
+    implementation 'com.google.android.gms:play-services-location:21.3.0'
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- baú -->
+    <path android:fillColor="#FFFFFF" android:pathData="M28,38h32v26h-32z"/>
+    <!-- cabine -->
+    <path android:fillColor="#FFFFFF" android:pathData="M62,46h10l8,8v10h-18z"/>
+    <path android:fillColor="#C0183C" android:pathData="M65,49h6l5,5h-11z"/>
+    <!-- rodas -->
+    <path android:fillColor="#FFFFFF" android:pathData="M40,68m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M70,68m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0"/>
+    <path android:fillColor="#C0183C" android:pathData="M40,68m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0"/>
+    <path android:fillColor="#C0183C" android:pathData="M70,68m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0"/>
+</vector>
