@@ -16,7 +16,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
+import android.provider.MediaStore;
 import android.provider.Settings;
+import android.webkit.ValueCallback;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -26,20 +28,33 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.core.content.FileProvider;
+
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends Activity {
 
     private static final int REQ_PERMISSOES = 10;
+    private static final int REQ_FOTO = 20;
     private static final String HOST_APP = Uri.parse(BuildConfig.URL_APP).getHost();
 
     private WebView web;
     private GeolocationPermissions.Callback geoCallback;
     private String geoOrigin;
     private boolean pendenteIniciarRastreio = false;
+    private ValueCallback<Uri[]> fotoCallback;
+    private Uri fotoUri;
+    private long ultimoPedidoPosicao = 0;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override
@@ -62,6 +77,38 @@ public class MainActivity extends Activity {
         web.addJavascriptInterface(new Ponte(), "VHCNative");
 
         web.setWebChromeClient(new WebChromeClient() {
+            // <input type="file">: abre a câmera (foto do comprovante) ou a galeria
+            @Override
+            public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fotoCallback != null) fotoCallback.onReceiveValue(null);
+                fotoCallback = callback;
+                try {
+                    File dir = new File(getCacheDir(), "fotos");
+                    dir.mkdirs();
+                    File[] antigas = dir.listFiles();
+                    if (antigas != null) for (File f : antigas) if (System.currentTimeMillis() - f.lastModified() > 86_400_000L) f.delete();
+                    File arq = new File(dir, "foto_" + System.currentTimeMillis() + ".jpg");
+                    fotoUri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".fotos", arq);
+                    Intent camera = new Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                            .putExtra(MediaStore.EXTRA_OUTPUT, fotoUri)
+                            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    Intent abrir;
+                    if (params.isCaptureEnabled()) {
+                        abrir = camera;
+                    } else {
+                        Intent galeria = new Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+                        abrir = Intent.createChooser(galeria, "Foto");
+                        abrir.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{camera});
+                    }
+                    startActivityForResult(abrir, REQ_FOTO);
+                    return true;
+                } catch (Exception e) {
+                    fotoCallback = null;
+                    callback.onReceiveValue(null);
+                    return true;
+                }
+            }
+
             @Override
             public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
                 if (temLocalizacao()) {
@@ -155,6 +202,77 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void reload() { runOnUiThread(() -> web.loadUrl(BuildConfig.URL_APP)); }
+
+        @JavascriptInterface
+        public int versionCode() { return BuildConfig.VERSION_CODE; }
+
+        // ── armazenamento do aparelho (sessão e filas offline), independente do navegador ──
+        @JavascriptInterface
+        public String kvGet(String chave) {
+            File f = arquivoKv(chave);
+            if (!f.exists()) return "";
+            try (FileInputStream in = new FileInputStream(f)) {
+                byte[] b = new byte[(int) f.length()];
+                int lido = 0;
+                while (lido < b.length) { int n = in.read(b, lido, b.length - lido); if (n < 0) break; lido += n; }
+                return new String(b, 0, lido, StandardCharsets.UTF_8);
+            } catch (Exception e) { return ""; }
+        }
+
+        @JavascriptInterface
+        public boolean kvSet(String chave, String valor) {
+            File f = arquivoKv(chave), tmp = new File(f.getPath() + ".tmp");
+            try (FileOutputStream out = new FileOutputStream(tmp)) {
+                out.write(valor.getBytes(StandardCharsets.UTF_8));
+            } catch (Exception e) { return false; }
+            return tmp.renameTo(f);
+        }
+
+        @JavascriptInterface
+        public void kvRemove(String chave) { arquivoKv(chave).delete(); }
+
+        // ── GPS do aparelho (não depende da permissão de localização do navegador) ──
+        /** JSON {lat,lng,acc,ts} da última posição, ou "" se ainda não houver. */
+        @JavascriptInterface
+        public String lastLocation() { return Rastreio.ultimaPosicao(MainActivity.this); }
+
+        /** Pede uma posição nova agora (no máximo 1 pedido a cada 10 s). */
+        @JavascriptInterface
+        public void requestLocation() { runOnUiThread(MainActivity.this::pedirPosicao); }
+    }
+
+    private File arquivoKv(String chave) {
+        File dir = new File(getFilesDir(), "kv");
+        dir.mkdirs();
+        return new File(dir, chave.replaceAll("[^A-Za-z0-9_-]", "_") + ".json");
+    }
+
+    @SuppressWarnings("MissingPermission")
+    private void pedirPosicao() {
+        if (!temLocalizacao()) return;
+        long agora = System.currentTimeMillis();
+        if (agora - ultimoPedidoPosicao < 10_000L) return;
+        ultimoPedidoPosicao = agora;
+        try {
+            LocationServices.getFusedLocationProviderClient(this)
+                    .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener(loc -> {
+                        if (loc != null) Rastreio.salvarPosicao(this, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), loc.getTime());
+                    });
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_FOTO || fotoCallback == null) return;
+        Uri[] resultado = null;
+        if (resultCode == RESULT_OK) {
+            Uri escolhida = data != null ? data.getData() : null;
+            resultado = new Uri[]{escolhida != null ? escolhida : fotoUri};
+        }
+        fotoCallback.onReceiveValue(resultado);
+        fotoCallback = null;
     }
 
     // ---------- permissões ----------

@@ -72,6 +72,26 @@ final class Rastreio {
     static String status(Context c) { return sp(c).getString(K_STATUS, "traveling"); }
     static long ultimoEnvio(Context c) { return sp(c).getLong(K_ULTIMO_ENVIO, 0); }
 
+    /** Última posição obtida pelo aparelho (serviço de viagem ou pedido avulso do app). */
+    static void salvarPosicao(Context c, double lat, double lng, float acc, long quando) {
+        sp(c).edit().putString("ultPos", lat + ";" + lng + ";" + acc + ";" + quando).apply();
+    }
+
+    /** JSON {lat,lng,acc,ts} ou "" se ainda não há posição. */
+    static String ultimaPosicao(Context c) {
+        String v = sp(c).getString("ultPos", "");
+        if (v.isEmpty()) return "";
+        try {
+            String[] p = v.split(";");
+            JSONObject o = new JSONObject();
+            o.put("lat", Double.parseDouble(p[0]));
+            o.put("lng", Double.parseDouble(p[1]));
+            o.put("acc", Math.round(Float.parseFloat(p[2])));
+            o.put("ts", Long.parseLong(p[3]));
+            return o.toString();
+        } catch (Exception e) { return ""; }
+    }
+
     static synchronized int pendentes(Context c) {
         return lerFila(c).length();
     }

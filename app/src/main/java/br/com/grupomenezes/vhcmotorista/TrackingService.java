@@ -130,6 +130,7 @@ public class TrackingService extends Service {
     }
 
     private void registrar(Location loc) {
+        Rastreio.salvarPosicao(this, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), loc.getTime());
         long agora = System.currentTimeMillis();
         // evita pontos duplicados quando o fused entrega dois seguidos
         if (agora - ultimoPontoMs < 60_000L) return;

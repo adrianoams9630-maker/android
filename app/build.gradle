@@ -54,4 +54,6 @@ android {
 dependencies {
     // Localização "fused" do Google: precisa, economiza bateria e acorda o aparelho no intervalo
     implementation 'com.google.android.gms:play-services-location:21.3.0'
+    // FileProvider: entrega a foto da câmera para o app
+    implementation 'androidx.core:core:1.13.1'
 }
