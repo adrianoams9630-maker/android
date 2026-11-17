@@ -30,6 +30,7 @@ import android.webkit.WebViewClient;
 
 import androidx.core.content.FileProvider;
 
+import com.google.android.gms.location.CurrentLocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 
@@ -251,13 +252,29 @@ public class MainActivity extends Activity {
     private void pedirPosicao() {
         if (!temLocalizacao()) return;
         long agora = System.currentTimeMillis();
-        if (agora - ultimoPedidoPosicao < 10_000L) return;
+        if (agora - ultimoPedidoPosicao < 4_000L) return;
         ultimoPedidoPosicao = agora;
         try {
+            // leitura NOVA (no máximo 10 s de idade) e precisa: é ela que vira o ponto do cliente na entrega
+            CurrentLocationRequest req = new CurrentLocationRequest.Builder()
+                    .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                    .setMaxUpdateAgeMillis(10_000L)
+                    .setDurationMillis(25_000L)
+                    .build();
             LocationServices.getFusedLocationProviderClient(this)
-                    .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .getCurrentLocation(req, null)
                     .addOnSuccessListener(loc -> {
-                        if (loc != null) Rastreio.salvarPosicao(this, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), loc.getTime());
+                        if (loc == null) return;
+                        // não troca uma leitura boa e recente por uma pior
+                        String ant = Rastreio.ultimaPosicao(this);
+                        try {
+                            if (!ant.isEmpty()) {
+                                org.json.JSONObject a = new org.json.JSONObject(ant);
+                                boolean recente = System.currentTimeMillis() - a.getLong("ts") < 20_000L;
+                                if (recente && a.getDouble("acc") < loc.getAccuracy()) return;
+                            }
+                        } catch (Exception ignored) {}
+                        Rastreio.salvarPosicao(this, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), loc.getTime());
                     });
         } catch (Exception ignored) {}
     }
